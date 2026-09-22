@@ -134,7 +134,7 @@ def run_backtest(symbols: Iterable[str], market: str, start: str, end: str, inte
                  stop_pct: float = 2.0, target_pct: float = 4.0, allow_short: bool = False):
     symbols = [s.strip() for s in symbols if s.strip()]
     if not symbols: raise ValueError("At least one symbol is required")
-    if len(symbols) > 50: raise ValueError("Maximum 50 symbols per backtest run")
+    if len(symbols) > 102: raise ValueError("Maximum 102 symbols per backtest run")
     if initial_capital <= 0: raise ValueError("Initial capital must be positive")
     if brokerage_pct < 0 or slippage_pct < 0: raise ValueError("Brokerage and slippage cannot be negative")
     if stop_pct <= 0 or target_pct <= 0: raise ValueError("Stop-loss and target must be positive")
