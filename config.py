@@ -7,12 +7,10 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # Ichimoku
     ichimoku_tenkan: int = 9
     ichimoku_kijun: int = 26
     ichimoku_senkou_b: int = 52
 
-    # Risk
     max_daily_loss: float = 1000
     max_open_positions: int = 10
     max_order_value: float = 10000
@@ -21,17 +19,16 @@ class Settings(BaseSettings):
     default_target_pct: float = 0.04
     starting_cash: float = 100000
 
-    # Leave these blank until you choose/configure your brokers.
-    # Credentials must be supplied through the server-side .env/environment,
-    # never committed to GitHub or placed in the frontend.
-    nse_broker: str = ""
+    # API providers. Keep secrets out of GitHub and the frontend.
+    nse_broker: str = "kite"
     nse_api_key: str = ""
-    nse_api_secret: str = ""
-    nasdaq_broker: str = ""
+    nse_access_token: str = ""
+    nasdaq_broker: str = "alpaca"
     nasdaq_api_key: str = ""
     nasdaq_api_secret: str = ""
+    alpaca_paper: bool = True
 
-    # Safety: live trading stays disabled unless explicitly enabled later.
+    # Hard safety switch. Must be explicitly enabled server-side for live orders.
     live_trading_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
