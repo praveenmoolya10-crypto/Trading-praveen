@@ -10,6 +10,7 @@ from config import settings
 from risk import RiskManager
 from market_data import PaperMarketDataProvider
 from broker import PaperBroker
+from api_brokers import APIError, AlpacaAdapter, KiteAdapter
 from ichimoku import generate_signal
 from models import Candle
 from backtest import run_backtest
@@ -18,6 +19,8 @@ app=FastAPI(title=settings.app_name,version="0.2.0")
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=False,allow_methods=["*"],allow_headers=["*"])
 market_data=PaperMarketDataProvider()
 broker=PaperBroker(settings.starting_cash)
+alpaca=AlpacaAdapter(settings.nasdaq_api_key, settings.nasdaq_api_secret, settings.alpaca_paper)
+kite=KiteAdapter(settings.nse_api_key, settings.nse_access_token)
 risk=RiskManager(settings.max_daily_loss,settings.max_open_positions,settings.max_order_value,settings.risk_per_trade)
 auto_trading=False
 
@@ -41,7 +44,7 @@ class BacktestIn(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status":"ok","environment":settings.environment,"live_trading_enabled":settings.live_trading_enabled,"auto_trading":auto_trading,"emergency_stop":risk.emergency_stop}
+    return {"status":"ok","environment":settings.environment,"live_trading_enabled":settings.live_trading_enabled,"auto_trading":auto_trading,"emergency_stop":risk.emergency_stop,"providers":{"NSE":{"broker":"kite","configured":kite.configured},"NASDAQ":{"broker":"alpaca","configured":alpaca.configured,"paper":settings.alpaca_paper}}}
 
 @app.post("/api/control/start")
 async def start():
@@ -68,6 +71,26 @@ async def reset_emergency():
     risk.emergency_stop=False
     return {"emergency_stop":False}
 
+@app.get("/api/providers")
+async def providers():
+    return {
+        "NSE": {"broker": "kite", "configured": kite.configured},
+        "NASDAQ": {"broker": "alpaca", "configured": alpaca.configured, "paper": settings.alpaca_paper},
+        "live_trading_enabled": settings.live_trading_enabled,
+    }
+
+@app.get("/api/market/latest/{market}/{symbol}")
+async def api_latest(market: str, symbol: str):
+    market = market.upper()
+    try:
+        if market == "NASDAQ":
+            return {"market": market, "symbol": symbol.upper(), "source": "alpaca", "data": await alpaca.latest(symbol.upper())}
+        if market == "NSE":
+            return {"market": market, "symbol": symbol.upper(), "source": "kite", "data": await kite.quote(symbol.upper())}
+        raise HTTPException(400, "Market must be NSE or NASDAQ")
+    except APIError as exc:
+        raise HTTPException(502, str(exc))
+
 @app.post("/api/market/candle")
 async def candle(c:CandleIn):
     market_data.ingest(Candle(c.symbol,c.market,datetime.fromisoformat(c.timestamp),c.open,c.high,c.low,c.close,c.volume))
@@ -82,9 +105,23 @@ async def signal(market:str,symbol:str):
 
 @app.post("/api/orders")
 async def order(o:OrderIn):
-    if settings.environment!="paper" or settings.live_trading_enabled: raise HTTPException(409,"Live broker adapter is not configured in this build")
     ok,reason=risk.validate(o.price,o.quantity,o.side)
     if not ok: raise HTTPException(400,reason)
+    market=o.market.upper()
+    if market == "NASDAQ" and alpaca.configured:
+        if not settings.live_trading_enabled and not settings.alpaca_paper:
+            raise HTTPException(409,"Live Alpaca trading is disabled")
+        try:
+            return await alpaca.place_order(o.symbol.upper(),o.side,o.quantity)
+        except APIError as exc:
+            raise HTTPException(502,str(exc))
+    if market == "NSE" and kite.configured:
+        if not settings.live_trading_enabled:
+            raise HTTPException(409,"Kite order API is configured, but live trading is disabled")
+        try:
+            return await kite.place_order(o.symbol.upper(),o.side,o.quantity)
+        except APIError as exc:
+            raise HTTPException(502,str(exc))
     return await broker.place_order(o.symbol,o.market,o.side,o.quantity,price=o.price)
 
 @app.post("/api/backtest")
@@ -97,10 +134,28 @@ async def backtest(req:BacktestIn):
         raise HTTPException(400,str(exc))
 
 @app.get("/api/positions")
-async def positions(): return await broker.positions()
+async def positions():
+    try:
+        result=[]
+        if alpaca.configured:
+            result.extend(await alpaca.positions())
+        if kite.configured:
+            k=await kite.positions()
+            result.extend(k.get("net", []))
+        if result:
+            return result
+    except APIError as exc:
+        raise HTTPException(502,str(exc))
+    return await broker.positions()
 
 @app.get("/api/account")
-async def account(): return await broker.account()
+async def account():
+    try:
+        if alpaca.configured:
+            return await alpaca.account()
+    except APIError as exc:
+        raise HTTPException(502,str(exc))
+    return await broker.account()
 
 dist=Path(__file__).parent/"dist"
 if dist.exists():
