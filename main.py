@@ -115,13 +115,13 @@ async def order(o:OrderIn):
             return await alpaca.place_order(o.symbol.upper(),o.side,o.quantity)
         except APIError as exc:
             raise HTTPException(502,str(exc))
-    if market == "NSE" and kite.configured:
-        if not settings.live_trading_enabled:
-            raise HTTPException(409,"Kite order API is configured, but live trading is disabled")
+    if market == "NSE" and kite.configured and settings.live_trading_enabled:
         try:
             return await kite.place_order(o.symbol.upper(),o.side,o.quantity)
         except APIError as exc:
             raise HTTPException(502,str(exc))
+    # NSE uses the local paper broker whenever live trading is disabled.
+    # Kite can still provide market data without placing real orders.
     return await broker.place_order(o.symbol,o.market,o.side,o.quantity,price=o.price)
 
 @app.post("/api/backtest")
