@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';import{createRoot}from'react-dom/
 const API=import.meta.env.VITE_API||'';
 function App(){
  const[h,setH]=useState({}),[sym,setSym]=useState('RELIANCE'),[market,setMarket]=useState('NSE'),[signal,setSignal]=useState({signal:'HOLD',reason:'Waiting'}),[err,setErr]=useState(''),[bt,setBt]=useState(null),[running,setRunning]=useState(false);
- const[form,setForm]=useState({market:'NSE',symbols:'RELIANCE,TCS,INFY',start:'2020-01-01',end:'2026-01-01',interval:'1d',initial_capital:100000,brokerage_pct:0.03,slippage_pct:0.05,stop_pct:2,target_pct:4,allow_short:false});
+ const[form,setForm]=useState({market:'NSE',symbols:'RELIANCE,TCS,INFY',start:'2015-01-01',end:'2026-09-22',interval:'1d',initial_capital:100000,brokerage_pct:0.03,slippage_pct:0.05,stop_pct:2,target_pct:4,allow_short:false});
  async function refresh(){try{let r=await fetch(API+'/api/health');setH(await r.json());let x=await fetch(API+'/api/signal/'+market+'/'+encodeURIComponent(sym));setSignal(await x.json());setErr('')}catch(e){setErr('Backend unavailable')}}
  useEffect(()=>{refresh();let i=setInterval(refresh,5000);return()=>clearInterval(i)},[market,sym]);
  async function control(path){await fetch(API+path,{method:'POST'});refresh()}
