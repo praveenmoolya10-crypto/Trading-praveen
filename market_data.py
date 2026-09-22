@@ -1,16 +1,15 @@
-from abc import ABC, abstractmethod
-from collections import defaultdict, deque
-from .models import Candle
-
+from abc import ABC,abstractmethod
+from collections import defaultdict,deque
+from models import Candle
 class MarketDataProvider(ABC):
-    @abstractmethod
-    async def subscribe(self, symbols: list[str], market: str): ...
-    @abstractmethod
-    async def candles(self, symbol: str, market: str, timeframe: str, limit: int = 200): ...
-
+ @abstractmethod
+ async def candles(self,symbol,market,timeframe,limit=200):...
+ @abstractmethod
+ async def latest(self,symbol,market):...
 class PaperMarketDataProvider(MarketDataProvider):
-    def __init__(self): self.buffers = defaultdict(lambda: deque(maxlen=1000))
-    async def subscribe(self, symbols, market): return {"status":"subscribed", "symbols":symbols, "market":market}
-    async def candles(self, symbol, market, timeframe, limit=200):
-        return list(self.buffers[(market, symbol)])[-limit:]
-    def ingest(self, candle: Candle): self.buffers[(candle.market, candle.symbol)].append(candle)
+ def __init__(self):self.buffers=defaultdict(lambda:deque(maxlen=2000))
+ def ingest(self,c):self.buffers[(c.market,c.symbol)].append(c)
+ async def candles(self,symbol,market,timeframe,limit=200):return list(self.buffers[(market,symbol)])[-limit:]
+ async def latest(self,symbol,market):
+  b=self.buffers[(market,symbol)]; return b[-1] if b else None
+ async def subscribe(self,symbols,market):return {"status":"paper","symbols":symbols,"market":market}
