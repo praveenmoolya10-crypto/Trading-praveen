@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: ichimoku-trading-praveen
+    runtime: docker
+    branch: feature/full-trading-platform
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ENVIRONMENT
+        value: paper
+      - key: LIVE_TRADING_ENABLED
+        value: "false"
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./trader.db
+      - key: NSE_BROKER
+        value: ""
+      - key: NSE_API_KEY
+        value: ""
+      - key: NSE_API_SECRET
+        value: ""
+      - key: NASDAQ_BROKER
+        value: ""
+      - key: NASDAQ_API_KEY
+        value: ""
+      - key: NASDAQ_API_SECRET
+        value: ""
